@@ -64,7 +64,7 @@ class KafkaHealthcheck(private val brokerId: Int,
    */
   class SessionExpireListener() extends IZkStateListener {
     @throws(classOf[Exception])
-    def handleStateChanged(state: KeeperState) {
+    override def handleStateChanged(state: KeeperState) {
       // do nothing, since zkclient will do reconnect for us.
     }
 
@@ -76,11 +76,20 @@ class KafkaHealthcheck(private val brokerId: Int,
      *             On any error.
      */
     @throws(classOf[Exception])
-    def handleNewSession() {
+    override def handleNewSession() {
       info("re-registering broker info in ZK for broker " + brokerId)
       register()
       info("done re-registering broker")
       info("Subscribing to %s path to watch for new topics".format(ZkUtils.BrokerTopicsPath))
+    }
+
+    @throws(classOf[Exception])
+    override def handleSessionEstablishmentError(e: Throwable) {
+      /**
+       * This is fatal state. We have no choice except to die
+       */
+      error("We failed to establish session to Zookeeper. Going down!", e)
+      System.exit(1)
     }
   }
 

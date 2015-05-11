@@ -17,10 +17,11 @@
 
 package kafka.consumer
 
-import scala.collection.JavaConversions._
-import kafka.utils.{ZkUtils, ZKStringSerializer, Logging}
-import org.I0Itec.zkclient.{IZkStateListener, IZkChildListener, ZkClient}
+import kafka.utils.{Logging, ZkUtils}
+import org.I0Itec.zkclient.{IZkChildListener, IZkStateListener, ZkClient}
 import org.apache.zookeeper.Watcher.Event.KeeperState
+
+import scala.collection.JavaConversions._
 
 class ZookeeperTopicEventWatcher(val zkClient: ZkClient,
     val eventHandler: TopicEventHandler[String]) extends Logging {
@@ -82,16 +83,25 @@ class ZookeeperTopicEventWatcher(val zkClient: ZkClient,
     extends IZkStateListener {
 
     @throws(classOf[Exception])
-    def handleStateChanged(state: KeeperState) { }
+    override def handleStateChanged(state: KeeperState) { }
 
     @throws(classOf[Exception])
-    def handleNewSession() {
+    override def handleNewSession() {
       lock.synchronized {
         if (zkClient != null) {
           info("ZK expired: resubscribing topic event listener to topic registry")
           zkClient.subscribeChildChanges(ZkUtils.BrokerTopicsPath, topicEventListener)
         }
       }
+    }
+
+    @throws(classOf[Exception])
+    override def handleSessionEstablishmentError(e: Throwable) {
+      /**
+       * This is fatal state. We have no choice except to die
+       */
+      error("We failed to establish session to Zookeeper. Going down!", e)
+      System.exit(1)
     }
   }
 }

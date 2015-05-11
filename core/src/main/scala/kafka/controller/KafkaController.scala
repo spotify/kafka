@@ -1090,7 +1090,7 @@ class KafkaController(val config : KafkaConfig, zkClient: ZkClient, val brokerSt
   class SessionExpirationListener() extends IZkStateListener with Logging {
     this.logIdent = "[SessionExpirationListener on " + config.brokerId + "], "
     @throws(classOf[Exception])
-    def handleStateChanged(state: KeeperState) {
+    override def handleStateChanged(state: KeeperState) {
       // do nothing, since zkclient will do reconnect for us.
     }
 
@@ -1102,12 +1102,21 @@ class KafkaController(val config : KafkaConfig, zkClient: ZkClient, val brokerSt
      *             On any error.
      */
     @throws(classOf[Exception])
-    def handleNewSession() {
+    override def handleNewSession() {
       info("ZK expired; shut down all controller components and try to re-elect")
       inLock(controllerContext.controllerLock) {
         onControllerResignation()
         controllerElector.elect
       }
+    }
+
+    @throws(classOf[Exception])
+    override def handleSessionEstablishmentError(e: Throwable) {
+      /**
+       * This is fatal state. We have no choice except to die
+       */
+      error("We failed to establish session to Zookeeper. Going down!", e)
+      System.exit(1)
     }
   }
 

@@ -462,7 +462,7 @@ private[kafka] class ZookeeperConsumerConnector(val config: ConsumerConfig,
                                  val loadBalancerListener: ZKRebalancerListener)
     extends IZkStateListener {
     @throws(classOf[Exception])
-    def handleStateChanged(state: KeeperState) {
+    override def handleStateChanged(state: KeeperState) {
       // do nothing, since zkclient will do reconnect for us.
     }
 
@@ -474,7 +474,7 @@ private[kafka] class ZookeeperConsumerConnector(val config: ConsumerConfig,
      *             On any error.
      */
     @throws(classOf[Exception])
-    def handleNewSession() {
+    override def handleNewSession() {
       /**
        *  When we get a SessionExpired event, we lost all ephemeral nodes and zkclient has reestablished a
        *  connection for us. We need to release the ownership of the current consumer and re-register this
@@ -489,6 +489,14 @@ private[kafka] class ZookeeperConsumerConnector(val config: ConsumerConfig,
       // The child change watchers will be set inside rebalance when we read the children list.
     }
 
+    @throws(classOf[Exception])
+    override def handleSessionEstablishmentError(e: Throwable) {
+      /**
+       * This is fatal state. We have no choice except to die
+       */
+      error("We failed to establish session to Zookeeper. Going down!", e)
+      System.exit(1)
+    }
   }
 
   class ZKTopicPartitionChangeListener(val loadBalancerListener: ZKRebalancerListener)
